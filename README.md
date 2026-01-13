@@ -18,10 +18,10 @@ Simple autonomous coding agent. Code, test, and ship based on plans. Uses SQLite
 ## Installation
 
 ```bash
-pip install git+https://github.com/Debapriya-source/test-agent.git
+pip install git+https://github.com/Debapriya-source/py-autonomous-agent.git
 
 # or with uv
-uv add git+https://github.com/Debapriya-source/test-agent.git
+uv add git+https://github.com/Debapriya-source/py-autonomous-agent.git
 ```
 
 ## Quick Start
@@ -132,8 +132,8 @@ agent status
 ## Development
 
 ```bash
-git clone https://github.com/Debapriya-source/test-agent.git
-cd test-agent
+git clone https://github.com/Debapriya-source/py-autonomous-agent.git
+cd py-autonomous-agent
 uv sync
 uv run ruff check agent/
 uv run agent --help

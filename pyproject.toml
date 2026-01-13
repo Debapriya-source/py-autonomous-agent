@@ -1,5 +1,5 @@
 [project]
-name = "test-agent"
+name = "py-autonomous-agent"
 version = "0.1.0"
 description = "Autonomous coding agent"
 readme = "README.md"
