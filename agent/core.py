@@ -1,7 +1,7 @@
 """Core agent orchestration."""
 from pathlib import Path
 
-from . import db, knowledge, mcp, skills_config
+from . import db, knowledge, mcp, skills_config, tech_stack
 from .claude_bridge import check_claude_available
 from .subagents import ExecutorAgent, PlannerAgent, ReviewerAgent
 
@@ -30,6 +30,9 @@ class Agent:
         # Init MCP config
         mcp.init_mcp_config(self.project_path)
 
+        # Configure default MCP servers (playwright, claude-code-sdk)
+        default_result = tech_stack.configure_defaults(self.project_path)
+
         # Init skills config
         skills_config.init_skills_config(self.project_path)
 
@@ -46,6 +49,7 @@ class Agent:
             "file_count": len(result.get("files", [])),
             "has_git": result.get("has_git", False),
             "mcp_servers": len(mcp_servers),
+            "default_servers": default_result.get("servers_added", []),
             "skills": enabled_skills
         }
 

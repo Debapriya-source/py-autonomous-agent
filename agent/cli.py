@@ -5,7 +5,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from . import mcp, skills_config
+from . import mcp, skills_config, tech_stack
 from .core import Agent
 
 console = Console()
@@ -35,6 +35,8 @@ def init(ctx):
         console.print(f"Files: {result['file_count']}")
         console.print(f"Git: {'yes' if result['has_git'] else 'no'}")
         console.print(f"MCP servers: {result.get('mcp_servers', 0)}")
+        if result.get('default_servers'):
+            console.print(f"Default MCPs: {', '.join(result['default_servers'])}")
         console.print(f"Skills: {', '.join(result.get('skills', [])) or 'none'}")
     else:
         console.print(f"[red]Error: {result['error']}[/red]")
@@ -322,6 +324,311 @@ def skills_disable(ctx, name):
     agent = ctx.obj["agent"]
     skills_config.disable_skill(name, agent.project_path)
     console.print(f"[yellow]Disabled: {name}[/yellow]")
+
+
+# Stack commands
+@main.group("stack")
+@click.pass_context
+def stack_group(ctx):
+    """Configure tech stack and MCP servers."""
+    pass
+
+
+@stack_group.command("list")
+@click.pass_context
+def stack_list(ctx):
+    """List available tech stacks."""
+    stacks = tech_stack.list_available_stacks()
+
+    # Show defaults first
+    console.print("\n[bold]Default Servers (always configured):[/bold]")
+    defaults = tech_stack.list_defaults()
+    for name, info in defaults.items():
+        console.print(f"  [green]{name}[/green] - {info['description']}")
+
+    console.print("\n[bold]Available Tech Stacks:[/bold]")
+    table = Table()
+    table.add_column("Name")
+    table.add_column("Description")
+    table.add_column("Servers")
+
+    for name, info in sorted(stacks.items()):
+        servers = ", ".join(info["servers"])
+        table.add_row(name, info["description"], servers)
+
+    console.print(table)
+
+
+@stack_group.command("presets")
+@click.pass_context
+def stack_presets(ctx):
+    """List available stack presets."""
+    presets = tech_stack.list_presets()
+
+    console.print("\n[bold]Stack Presets:[/bold]")
+    table = Table()
+    table.add_column("Name")
+    table.add_column("Description")
+    table.add_column("Includes")
+
+    for name, info in presets.items():
+        includes = ", ".join(info["stacks"])
+        table.add_row(name, info["description"], includes)
+
+    console.print(table)
+
+
+@stack_group.command("add")
+@click.argument("stacks", nargs=-1, required=True)
+@click.option("--env", "-e", multiple=True, help="Environment var (KEY=VALUE)")
+@click.pass_context
+def stack_add(ctx, stacks, env):
+    """Add tech stacks to configure MCP servers.
+
+    Examples:
+        agent stack add postgres github
+        agent stack add github -e GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxx
+        agent stack add postgres -e POSTGRES_CONNECTION_STRING=postgresql://...
+    """
+    agent = ctx.obj["agent"]
+
+    # Parse env vars
+    env_values = {}
+    for e in env:
+        if "=" in e:
+            k, v = e.split("=", 1)
+            env_values[k] = v
+
+    all_pending = {}
+
+    for stack_name in stacks:
+        result = tech_stack.configure_stack(stack_name, env_values, agent.project_path)
+
+        if result.get("success"):
+            servers = ", ".join(result["servers_added"])
+            console.print(f"[green]Added stack '{stack_name}': {servers}[/green]")
+
+            if result.get("pending_env"):
+                all_pending.update(result["pending_env"])
+        else:
+            console.print(f"[red]Error: {result.get('error')}[/red]")
+
+    # Show pending env vars that need configuration
+    if all_pending:
+        console.print("\n[yellow]Pending configuration required:[/yellow]")
+        for server_name, vars in all_pending.items():
+            console.print(f"\n  [bold]{server_name}:[/bold]")
+            for var_name, var_info in vars.items():
+                console.print(f"    {var_name}: {var_info['description']}")
+                if var_info.get("example"):
+                    console.print(f"      [dim]Example: {var_info['example']}[/dim]")
+
+        console.print("\n[dim]Use 'agent stack configure <server>' to set values[/dim]")
+
+
+@stack_group.command("preset")
+@click.argument("name")
+@click.option("--env", "-e", multiple=True, help="Environment var (KEY=VALUE)")
+@click.pass_context
+def stack_preset(ctx, name, env):
+    """Configure a preset stack collection.
+
+    Examples:
+        agent stack preset web-basic
+        agent stack preset fullstack-postgres -e POSTGRES_CONNECTION_STRING=...
+    """
+    agent = ctx.obj["agent"]
+
+    # Parse env vars
+    env_values = {}
+    for e in env:
+        if "=" in e:
+            k, v = e.split("=", 1)
+            env_values[k] = v
+
+    result = tech_stack.configure_preset(name, env_values, agent.project_path)
+
+    if not result.get("success"):
+        console.print(f"[red]Error: {result.get('error')}[/red]")
+        return
+
+    console.print(f"[green]Configured preset '{name}'[/green]")
+
+    for stack_name, stack_result in result["stacks"].items():
+        if stack_result.get("success"):
+            servers = ", ".join(stack_result["servers_added"])
+            console.print(f"  {stack_name}: {servers}")
+
+    # Show pending env vars
+    if result.get("all_pending_env"):
+        console.print("\n[yellow]Pending configuration required:[/yellow]")
+        for server_name, vars in result["all_pending_env"].items():
+            console.print(f"\n  [bold]{server_name}:[/bold]")
+            for var_name, var_info in vars.items():
+                console.print(f"    {var_name}: {var_info['description']}")
+
+        console.print("\n[dim]Use 'agent stack configure <server>' to set values[/dim]")
+
+
+@stack_group.command("configure")
+@click.argument("server")
+@click.option("--env", "-e", multiple=True, help="Environment var (KEY=VALUE)")
+@click.option("--interactive", "-i", is_flag=True, help="Interactive mode")
+@click.pass_context
+def stack_configure(ctx, server, env, interactive):
+    """Configure environment variables for a server.
+
+    Examples:
+        agent stack configure github -e GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxx
+        agent stack configure postgres -i  # interactive mode
+    """
+    agent = ctx.obj["agent"]
+
+    if interactive:
+        # Get pending env vars for this server
+        pending = tech_stack.get_pending_env(agent.project_path)
+        server_pending = pending.get(server, {})
+
+        if not server_pending:
+            # Try to get required vars from stack definition
+            for stack_name, stack_info in tech_stack.TECH_STACK_SERVERS.items():
+                for srv_name, srv_config in stack_info.get("servers", {}).items():
+                    if srv_name == server:
+                        for env_name, env_info in srv_config.get("env", {}).items():
+                            if env_info.get("required"):
+                                server_pending[env_name] = env_info
+
+        if not server_pending:
+            console.print(f"[yellow]No configuration needed for {server}[/yellow]")
+            return
+
+        env_values = {}
+        console.print(f"\n[bold]Configure {server}:[/bold]")
+
+        for var_name, var_info in server_pending.items():
+            desc = var_info.get("description", "")
+            example = var_info.get("example", "")
+
+            if desc:
+                console.print(f"  [dim]{desc}[/dim]")
+            if example:
+                console.print(f"  [dim]Example: {example}[/dim]")
+
+            value = click.prompt(f"  {var_name}", default="", show_default=False)
+            if value:
+                env_values[var_name] = value
+
+        if env_values:
+            if tech_stack.update_server_env(server, env_values, agent.project_path):
+                console.print(f"[green]Updated {server} configuration[/green]")
+            else:
+                console.print(f"[red]Failed to update {server}[/red]")
+    else:
+        # Parse env vars from command line
+        env_values = {}
+        for e in env:
+            if "=" in e:
+                k, v = e.split("=", 1)
+                env_values[k] = v
+
+        if not env_values:
+            console.print("[red]No environment variables provided. Use -e KEY=VALUE or -i for interactive[/red]")
+            return
+
+        if tech_stack.update_server_env(server, env_values, agent.project_path):
+            console.print(f"[green]Updated {server} configuration[/green]")
+        else:
+            console.print(f"[red]Server '{server}' not found in config[/red]")
+
+
+@stack_group.command("pending")
+@click.pass_context
+def stack_pending(ctx):
+    """Show pending environment variables that need configuration."""
+    agent = ctx.obj["agent"]
+    pending = tech_stack.get_pending_env(agent.project_path)
+
+    if not pending:
+        console.print("[green]No pending configuration[/green]")
+        return
+
+    console.print("\n[yellow]Pending configuration:[/yellow]")
+    for server_name, vars in pending.items():
+        console.print(f"\n[bold]{server_name}:[/bold]")
+        for var_name, var_info in vars.items():
+            console.print(f"  {var_name}: {var_info['description']}")
+            if var_info.get("example"):
+                console.print(f"    [dim]Example: {var_info['example']}[/dim]")
+
+    console.print("\n[dim]Use 'agent stack configure <server> -i' to set values interactively[/dim]")
+
+
+@stack_group.command("show")
+@click.pass_context
+def stack_show(ctx):
+    """Show current tech stack configuration."""
+    agent = ctx.obj["agent"]
+
+    configured = tech_stack.get_configured_stacks(agent.project_path)
+    defaults_ok = tech_stack.are_defaults_configured(agent.project_path)
+
+    console.print("\n[bold]Current Configuration:[/bold]")
+
+    # Default servers
+    console.print("\n[bold]Default Servers:[/bold]")
+    if defaults_ok:
+        for name, info in tech_stack.list_defaults().items():
+            console.print(f"  [green]{name}[/green] - {info['description']}")
+    else:
+        console.print("  [yellow]Not yet configured. Run 'agent init' first.[/yellow]")
+
+    # Configured stacks
+    console.print("\n[bold]Configured Stacks:[/bold]")
+    if configured:
+        for stack_name in configured:
+            console.print(f"  [green]{stack_name}[/green]")
+    else:
+        console.print("  [dim]None[/dim]")
+
+    # Pending env vars
+    pending = tech_stack.get_pending_env(agent.project_path)
+    if pending:
+        console.print("\n[yellow]Pending Configuration:[/yellow]")
+        for server_name, vars in pending.items():
+            var_names = ", ".join(vars.keys())
+            console.print(f"  {server_name}: {var_names}")
+
+
+@stack_group.command("info")
+@click.argument("stack_name")
+@click.pass_context
+def stack_info(ctx, stack_name):
+    """Show details about a specific tech stack."""
+    if stack_name not in tech_stack.TECH_STACK_SERVERS:
+        console.print(f"[red]Unknown stack: {stack_name}[/red]")
+        return
+
+    stack = tech_stack.TECH_STACK_SERVERS[stack_name]
+
+    console.print(f"\n[bold]{stack_name}[/bold]")
+    console.print(f"  {stack.get('description', '')}")
+
+    for server_name, server_config in stack.get("servers", {}).items():
+        console.print(f"\n  [bold]Server: {server_name}[/bold]")
+        console.print(f"    Command: {server_config.get('command')}")
+        args = " ".join(server_config.get("args", []))
+        console.print(f"    Args: {args[:60]}...")
+
+        env_vars = server_config.get("env", {})
+        if env_vars:
+            console.print("    [bold]Environment Variables:[/bold]")
+            for env_name, env_info in env_vars.items():
+                required = "[required]" if env_info.get("required") else "[optional]"
+                console.print(f"      {env_name} {required}")
+                console.print(f"        {env_info.get('description', '')}")
+                if env_info.get("example"):
+                    console.print(f"        [dim]Example: {env_info['example']}[/dim]")
+
 
 if __name__ == "__main__":
     main()
