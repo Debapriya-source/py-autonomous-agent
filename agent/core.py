@@ -1,8 +1,10 @@
 """Core agent orchestration."""
 from pathlib import Path
-from . import db, knowledge, mcp
-from .subagents import PlannerAgent, ExecutorAgent, ReviewerAgent
+
+from . import db, knowledge, mcp, skills_config
 from .claude_bridge import check_claude_available
+from .subagents import ExecutorAgent, PlannerAgent, ReviewerAgent
+
 
 class Agent:
     """Main agent orchestrator."""
@@ -28,8 +30,13 @@ class Agent:
         # Init MCP config
         mcp.init_mcp_config(self.project_path)
 
-        # Count inherited MCP servers
+        # Init skills config
+        skills_config.init_skills_config(self.project_path)
+
+        # Count inherited MCP servers and enabled skills
         mcp_servers = mcp.list_mcp_servers(self.project_path)
+        skills = skills_config.list_skills(self.project_path)
+        enabled_skills = [s for s, info in skills.items() if info["enabled"]]
 
         return {
             "success": True,
@@ -38,7 +45,8 @@ class Agent:
             "test_framework": result.get("test_framework"),
             "file_count": len(result.get("files", [])),
             "has_git": result.get("has_git", False),
-            "mcp_servers": len(mcp_servers)
+            "mcp_servers": len(mcp_servers),
+            "skills": enabled_skills
         }
 
     def plan(self, file_path: str = None, interactive: bool = False) -> dict:

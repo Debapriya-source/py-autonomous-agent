@@ -1,7 +1,9 @@
 """Reviewer agent - validate changes."""
 from pathlib import Path
+
 from ..claude_bridge import run_claude
 from ..skills import TesterSkill
+
 
 class ReviewerAgent:
     """Review and validate code changes."""

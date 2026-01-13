@@ -1,6 +1,7 @@
 """Knowledge base - project scanning and patterns."""
 import json
 from pathlib import Path
+
 from . import db
 
 IGNORE_DIRS = {".git", ".agent", "__pycache__", "node_modules", ".venv", "venv", ".tox", "dist", "build", ".eggs"}

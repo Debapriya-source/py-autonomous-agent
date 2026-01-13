@@ -1,8 +1,9 @@
 """Shipper skill - git operations with user prompts."""
 import subprocess
 from pathlib import Path
+
 from rich.console import Console
-from rich.prompt import Prompt, Confirm
+from rich.prompt import Confirm, Prompt
 
 console = Console()
 

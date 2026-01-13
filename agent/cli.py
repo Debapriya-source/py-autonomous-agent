@@ -1,10 +1,12 @@
 """CLI interface."""
-import click
 from pathlib import Path
+
+import click
 from rich.console import Console
 from rich.table import Table
+
+from . import mcp, skills_config
 from .core import Agent
-from . import mcp
 
 console = Console()
 
@@ -33,6 +35,7 @@ def init(ctx):
         console.print(f"Files: {result['file_count']}")
         console.print(f"Git: {'yes' if result['has_git'] else 'no'}")
         console.print(f"MCP servers: {result.get('mcp_servers', 0)}")
+        console.print(f"Skills: {', '.join(result.get('skills', [])) or 'none'}")
     else:
         console.print(f"[red]Error: {result['error']}[/red]")
 
@@ -272,6 +275,53 @@ def mcp_test(ctx, name):
         console.print("[yellow]Server started (timeout waiting for response)[/yellow]")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
+
+# Skills commands
+@main.group("skills")
+@click.pass_context
+def skills_group(ctx):
+    """Manage Claude Code skills/plugins."""
+    pass
+
+@skills_group.command("list")
+@click.pass_context
+def skills_list(ctx):
+    """List all available skills."""
+    agent = ctx.obj["agent"]
+    skills = skills_config.list_skills(agent.project_path)
+
+    if not skills:
+        console.print("[yellow]No skills available[/yellow]")
+        return
+
+    table = Table(title="Skills")
+    table.add_column("Name")
+    table.add_column("Description")
+    table.add_column("Status")
+
+    for name, info in skills.items():
+        status = "[green]enabled[/green]" if info["enabled"] else "[dim]disabled[/dim]"
+        table.add_row(name, info["description"][:40], status)
+
+    console.print(table)
+
+@skills_group.command("enable")
+@click.argument("name")
+@click.pass_context
+def skills_enable(ctx, name):
+    """Enable a skill."""
+    agent = ctx.obj["agent"]
+    skills_config.enable_skill(name, agent.project_path)
+    console.print(f"[green]Enabled: {name}[/green]")
+
+@skills_group.command("disable")
+@click.argument("name")
+@click.pass_context
+def skills_disable(ctx, name):
+    """Disable a skill."""
+    agent = ctx.obj["agent"]
+    skills_config.disable_skill(name, agent.project_path)
+    console.print(f"[yellow]Disabled: {name}[/yellow]")
 
 if __name__ == "__main__":
     main()

@@ -1,8 +1,10 @@
 """Tester skill - test detection, running, generation."""
 import subprocess
 from pathlib import Path
-from ..claude_bridge import run_claude
+
 from .. import knowledge
+from ..claude_bridge import run_claude
+
 
 class TesterSkill:
     """Test detection, running, and generation."""

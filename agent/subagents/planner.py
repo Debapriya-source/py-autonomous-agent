@@ -1,8 +1,10 @@
 """Planner agent - parse plans into tasks."""
 import re
 from pathlib import Path
+
 from .. import db
 from ..claude_bridge import run_claude
+
 
 class PlannerAgent:
     """Parse markdown plans into executable tasks."""

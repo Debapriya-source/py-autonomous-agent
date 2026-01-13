@@ -1,7 +1,9 @@
 """Executor agent - run tasks using skills."""
 from pathlib import Path
+
 from .. import db
-from ..skills import CoderSkill, TesterSkill, ShipperSkill
+from ..skills import CoderSkill, ShipperSkill, TesterSkill
+
 
 class ExecutorAgent:
     """Execute tasks using appropriate skills."""

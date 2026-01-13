@@ -98,14 +98,29 @@ agent mcp add fs @anthropic/mcp-server-filesystem
 agent mcp add github @anthropic/mcp-server-github -e GITHUB_TOKEN=xxx
 ```
 
+## Skills/Plugins
+
+```bash
+agent skills list           # show skills
+agent skills enable <name>  # enable skill
+agent skills disable <name> # disable skill
+```
+
+Built-in skills:
+- `feature-dev` - Guided feature development (auto-selected for "feature", "implement", "add", "create", "build" tasks)
+- `agent-sdk-dev:new-sdk-app` - Create Agent SDK app
+
+Skills auto-select based on task keywords when enabled.
+
 ## Project Data
 
 Created in `.agent/`:
 ```
 .agent/
-├── agent.db    # SQLite database
-├── mcp.json    # MCP config
-└── plans/      # Plan files
+├── agent.db     # SQLite database
+├── mcp.json     # MCP config
+├── skills.json  # Skills config
+└── plans/       # Plan files
 ```
 
 ## Example Workflow

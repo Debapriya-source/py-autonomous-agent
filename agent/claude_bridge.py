@@ -1,12 +1,14 @@
 """Claude Code CLI bridge."""
-import subprocess
 import json
 import os
+import subprocess
 from pathlib import Path
+
 from . import mcp
 
+
 def run_claude(prompt: str, cwd: Path = None, timeout: int = 300,
-               use_mcp: bool = True) -> dict:
+               use_mcp: bool = True, skill: str = None) -> dict:
     """Run Claude Code CLI with prompt.
 
     Args:
@@ -14,11 +16,16 @@ def run_claude(prompt: str, cwd: Path = None, timeout: int = 300,
         cwd: Working directory
         timeout: Timeout in seconds
         use_mcp: Whether to include MCP config
+        skill: Optional skill/plugin to invoke (e.g., "feature-dev")
     """
     cwd = cwd or Path.cwd()
     temp_config = None
 
     try:
+        # If skill specified, prepend skill invocation to prompt
+        if skill:
+            prompt = f"/{skill} {prompt}"
+
         cmd = ["claude", "-p", prompt, "--output-format", "json"]
 
         # Add MCP config if available

@@ -48,6 +48,22 @@ agent mcp add github @anthropic/mcp-server-github -e GITHUB_TOKEN=xxx
 
 All in `.agent/` dir: agent.db, mcp.json, plans/
 
+## Skills/Plugins
+
+```bash
+agent skills list           # show skills
+agent skills enable <name>  # enable skill
+agent skills disable <name> # disable skill
+```
+
+Known skills:
+- `feature-dev` - Guided feature development
+- `agent-sdk-dev:new-sdk-app` - Create Agent SDK app
+
+Auto-selects skill based on task keywords (feature, implement, add, create, build).
+
+Config in `.agent/skills.json`.
+
 ## Code Quality
 
 ```bash

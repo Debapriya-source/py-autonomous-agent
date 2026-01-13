@@ -1,6 +1,6 @@
 """Agent skills."""
 from .coder import CoderSkill
-from .tester import TesterSkill
 from .shipper import ShipperSkill
+from .tester import TesterSkill
 
 __all__ = ["CoderSkill", "TesterSkill", "ShipperSkill"]

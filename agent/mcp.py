@@ -2,7 +2,9 @@
 import json
 import tempfile
 from pathlib import Path
+
 from . import db
+
 
 def get_claude_config_paths() -> list[Path]:
     """Get Claude config paths in priority order (highest first)."""
