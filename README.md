@@ -1,4 +1,4 @@
-# Test Agent
+# Py Autonomous Agent
 
 Simple autonomous coding agent. Code, test, and ship based on plans. Uses SQLite for task tracking and Claude Code CLI for AI.
 
