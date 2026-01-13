@@ -94,7 +94,7 @@ def status(ctx):
     console.print(f"\n[bold]Plans:[/bold] {result['plans']}")
 
     tasks = result["tasks"]
-    console.print(f"\n[bold]Tasks:[/bold]")
+    console.print("\n[bold]Tasks:[/bold]")
     console.print(f"  Total: {tasks['total']}")
     console.print(f"  Pending: {tasks['pending']}")
     console.print(f"  In Progress: {tasks['in_progress']}")
@@ -263,13 +263,13 @@ def mcp_test(ctx, name):
             timeout=10
         )
         if result.returncode == 0:
-            console.print(f"[green]Server appears valid[/green]")
+            console.print("[green]Server appears valid[/green]")
         else:
-            console.print(f"[yellow]Server responded with error[/yellow]")
+            console.print("[yellow]Server responded with error[/yellow]")
     except FileNotFoundError:
         console.print(f"[red]Command not found: {cmd}[/red]")
     except subprocess.TimeoutExpired:
-        console.print(f"[yellow]Server started (timeout waiting for response)[/yellow]")
+        console.print("[yellow]Server started (timeout waiting for response)[/yellow]")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
 

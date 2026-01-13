@@ -48,9 +48,17 @@ agent mcp add github @anthropic/mcp-server-github -e GITHUB_TOKEN=xxx
 
 All in `.agent/` dir: agent.db, mcp.json, plans/
 
+## Code Quality
+
+```bash
+uv run ruff check agent/      # lint
+uv run ruff check agent/ --fix  # auto-fix
+```
+
 ## Design
 
 - Sequential task execution
 - Ship ops prompt user
 - Claude Code CLI for AI
 - MCP config auto-merged from all sources
+- Ruff linter for code quality

@@ -55,7 +55,7 @@ def run_claude(prompt: str, cwd: Path = None, timeout: int = 300,
         if temp_config and temp_config.exists():
             try:
                 os.unlink(temp_config)
-            except:
+            except Exception:
                 pass
 
 def run_claude_interactive(prompt: str, cwd: Path = None,
@@ -84,7 +84,7 @@ def run_claude_interactive(prompt: str, cwd: Path = None,
         if temp_config and temp_config.exists():
             try:
                 os.unlink(temp_config)
-            except:
+            except Exception:
                 pass
 
 def check_claude_available() -> bool:
@@ -92,7 +92,7 @@ def check_claude_available() -> bool:
     try:
         result = subprocess.run(["claude", "--version"], capture_output=True)
         return result.returncode == 0
-    except:
+    except Exception:
         return False
 
 def get_mcp_status(cwd: Path = None) -> dict:

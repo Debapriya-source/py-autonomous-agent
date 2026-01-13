@@ -1,7 +1,6 @@
 """Coder skill - code generation via Claude."""
 from pathlib import Path
 from ..claude_bridge import run_claude
-from .. import db
 
 class CoderSkill:
     """Generate/modify code using Claude."""

@@ -126,7 +126,7 @@ Return only valid JSON array, no other text."""
                         return json.loads(match.group())
                 elif isinstance(output, list):
                     return output
-            except:
+            except Exception:
                 pass
         return []
 

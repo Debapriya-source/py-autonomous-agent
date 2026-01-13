@@ -102,7 +102,7 @@ def _detect_test_framework(root: Path, result: dict):
                     result["test_framework"] = "mocha"
                 elif "vitest" in deps:
                     result["test_framework"] = "vitest"
-            except:
+            except Exception:
                 pass
 
     # Go

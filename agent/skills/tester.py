@@ -21,8 +21,6 @@ class TesterSkill:
 
     def execute(self, task: dict) -> dict:
         """Execute test task."""
-        task_type = task.get("task_type", "test")
-
         if "generate" in task.get("title", "").lower():
             return self.generate_tests(task.get("description", ""))
         else:

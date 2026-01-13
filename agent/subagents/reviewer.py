@@ -22,7 +22,7 @@ class ReviewerAgent:
                 text=True
             )
             diff = result.stdout
-        except:
+        except Exception:
             diff = ""
 
         if not diff:
