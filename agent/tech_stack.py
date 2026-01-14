@@ -2548,10 +2548,13 @@ def configure_stack(
     Returns:
         Dict with 'success', 'servers_added', 'pending_env' keys
     """
-    if stack_name not in TECH_STACK_SERVERS:
+    # Check built-in stacks first, then custom
+    all_stacks = get_all_available_stacks(project_path)
+
+    if stack_name not in all_stacks:
         return {"success": False, "error": f"Unknown stack: {stack_name}"}
 
-    stack = TECH_STACK_SERVERS[stack_name]
+    stack = all_stacks[stack_name]
     env_values = env_values or {}
     servers_added = []
     pending_env = {}
@@ -2689,3 +2692,113 @@ def get_configured_stacks(project_path: Path = None) -> list:
     """Get list of configured tech stacks."""
     config = load_stack_config(project_path)
     return config.get("stacks", [])
+
+
+def add_custom_stack(
+    name: str,
+    description: str,
+    command: str,
+    args: list = None,
+    env_vars: dict = None,
+    project_path: Path = None,
+) -> dict:
+    """Add a custom MCP server/stack.
+
+    Args:
+        name: Name for the custom stack/server
+        description: Description of what it does
+        command: Command to run (e.g., "npx", "docker", "python")
+        args: Command arguments
+        env_vars: Dict of env var definitions with description, example, required
+        project_path: Project path
+
+    Returns:
+        Dict with 'success' and info
+    """
+    config = load_stack_config(project_path)
+
+    if "custom_stacks" not in config:
+        config["custom_stacks"] = {}
+
+    # Build env var config
+    env_config = {}
+    if env_vars:
+        for var_name, var_info in env_vars.items():
+            if isinstance(var_info, str):
+                # Simple format: just description
+                env_config[var_name] = {
+                    "description": var_info,
+                    "example": "",
+                    "required": True,
+                }
+            else:
+                # Full format
+                env_config[var_name] = var_info
+
+    config["custom_stacks"][name] = {
+        "description": description,
+        "servers": {
+            name: {
+                "command": command,
+                "args": args or [],
+                "env": env_config,
+            }
+        },
+    }
+
+    save_stack_config(config, project_path)
+
+    return {"success": True, "name": name}
+
+
+def remove_custom_stack(name: str, project_path: Path = None) -> bool:
+    """Remove a custom MCP stack.
+
+    Args:
+        name: Name of the custom stack to remove
+        project_path: Project path
+
+    Returns:
+        True if removed, False if not found
+    """
+    config = load_stack_config(project_path)
+
+    if "custom_stacks" not in config:
+        return False
+
+    if name not in config["custom_stacks"]:
+        return False
+
+    del config["custom_stacks"][name]
+    save_stack_config(config, project_path)
+
+    # Also remove from MCP config if present
+    mcp.remove_mcp_server(name, project_path)
+
+    return True
+
+
+def list_custom_stacks(project_path: Path = None) -> dict:
+    """List all custom MCP stacks.
+
+    Returns:
+        Dict of custom stack name -> info
+    """
+    config = load_stack_config(project_path)
+    return config.get("custom_stacks", {})
+
+
+def get_all_available_stacks(project_path: Path = None) -> dict:
+    """Get all available stacks (built-in + custom).
+
+    Returns:
+        Dict combining TECH_STACK_SERVERS and custom stacks
+    """
+    # Start with built-in stacks
+    all_stacks = dict(TECH_STACK_SERVERS)
+
+    # Add custom stacks
+    custom = list_custom_stacks(project_path)
+    all_stacks.update(custom)
+
+    return all_stacks

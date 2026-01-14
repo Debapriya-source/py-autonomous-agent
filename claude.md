@@ -107,6 +107,32 @@ agent stack configure postgres -i  # interactive auth setup
 agent stack preset devops -e GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxx
 ```
 
+### Custom MCP Servers
+
+Add your own MCP servers not in the built-in list:
+
+```bash
+agent stack custom                    # list custom MCPs
+agent stack custom-add <name> <cmd>   # add custom MCP
+agent stack custom-remove <name>      # remove custom MCP
+```
+
+Examples:
+```bash
+# Add npm package MCP
+agent stack custom-add my-mcp @org/my-mcp-server -p -d "My custom server"
+
+# Add with custom command and args
+agent stack custom-add db-tool docker -a run -a -i -a --rm -a mcp/db-tool
+
+# Add with environment variables
+agent stack custom-add api-mcp npx -a @company/api-mcp -e "API_KEY:API key" -e "API_URL:API endpoint"
+
+# Then use it like any other stack
+agent stack add my-mcp
+agent stack configure my-mcp -i
+```
+
 Config in `.agent/stack.json`.
 
 ## Data

@@ -338,13 +338,21 @@ def stack_group(ctx):
 @click.pass_context
 def stack_list(ctx):
     """List available tech stacks."""
+    agent = ctx.obj["agent"]
     stacks = tech_stack.list_available_stacks()
+    custom = tech_stack.list_custom_stacks(agent.project_path)
 
     # Show defaults first
     console.print("\n[bold]Default Servers (always configured):[/bold]")
     defaults = tech_stack.list_defaults()
     for name, info in defaults.items():
         console.print(f"  [green]{name}[/green] - {info['description']}")
+
+    # Show custom stacks if any
+    if custom:
+        console.print("\n[bold]Custom MCP Servers:[/bold]")
+        for name, info in custom.items():
+            console.print(f"  [cyan]{name}[/cyan] - {info.get('description', '')}")
 
     console.print("\n[bold]Available Tech Stacks:[/bold]")
     table = Table()
@@ -604,20 +612,31 @@ def stack_show(ctx):
 @click.pass_context
 def stack_info(ctx, stack_name):
     """Show details about a specific tech stack."""
-    if stack_name not in tech_stack.TECH_STACK_SERVERS:
+    agent = ctx.obj["agent"]
+    all_stacks = tech_stack.get_all_available_stacks(agent.project_path)
+
+    if stack_name not in all_stacks:
         console.print(f"[red]Unknown stack: {stack_name}[/red]")
         return
 
-    stack = tech_stack.TECH_STACK_SERVERS[stack_name]
+    stack = all_stacks[stack_name]
+    is_custom = stack_name in tech_stack.list_custom_stacks(agent.project_path)
 
-    console.print(f"\n[bold]{stack_name}[/bold]")
+    console.print(f"\n[bold]{stack_name}[/bold]", end="")
+    if is_custom:
+        console.print(" [cyan](custom)[/cyan]")
+    else:
+        console.print()
     console.print(f"  {stack.get('description', '')}")
 
     for server_name, server_config in stack.get("servers", {}).items():
         console.print(f"\n  [bold]Server: {server_name}[/bold]")
         console.print(f"    Command: {server_config.get('command')}")
         args = " ".join(server_config.get("args", []))
-        console.print(f"    Args: {args[:60]}...")
+        if len(args) > 60:
+            console.print(f"    Args: {args[:60]}...")
+        else:
+            console.print(f"    Args: {args}")
 
         env_vars = server_config.get("env", {})
         if env_vars:
@@ -628,6 +647,117 @@ def stack_info(ctx, stack_name):
                 console.print(f"        {env_info.get('description', '')}")
                 if env_info.get("example"):
                     console.print(f"        [dim]Example: {env_info['example']}[/dim]")
+
+
+@stack_group.command("custom")
+@click.pass_context
+def stack_custom(ctx):
+    """List custom MCP servers."""
+    agent = ctx.obj["agent"]
+    custom = tech_stack.list_custom_stacks(agent.project_path)
+
+    if not custom:
+        console.print("[dim]No custom MCP servers defined[/dim]")
+        console.print("\n[dim]Add one with: agent stack custom-add <name> <command>[/dim]")
+        return
+
+    console.print("\n[bold]Custom MCP Servers:[/bold]")
+    table = Table()
+    table.add_column("Name")
+    table.add_column("Description")
+    table.add_column("Command")
+
+    for name, info in custom.items():
+        desc = info.get("description", "")
+        servers = info.get("servers", {})
+        cmd = ""
+        if servers:
+            first_server = list(servers.values())[0]
+            cmd = first_server.get("command", "")
+            args = first_server.get("args", [])
+            if args:
+                cmd += " " + " ".join(args[:2])
+                if len(args) > 2:
+                    cmd += "..."
+        table.add_row(name, desc[:40], cmd[:40])
+
+    console.print(table)
+
+
+@stack_group.command("custom-add")
+@click.argument("name")
+@click.argument("command")
+@click.option("--args", "-a", multiple=True, help="Command arguments")
+@click.option("--desc", "-d", default="", help="Description")
+@click.option("--env", "-e", multiple=True, help="Env var (NAME:description)")
+@click.option("--package", "-p", is_flag=True, help="Treat command as npm package")
+@click.pass_context
+def stack_custom_add(ctx, name, command, args, desc, env, package):
+    """Add a custom MCP server.
+
+    Examples:
+        agent stack custom-add my-mcp npx -a my-mcp-server -d "My custom MCP"
+        agent stack custom-add my-mcp @org/my-mcp-server -p -d "NPM package"
+        agent stack custom-add db-mcp docker -a run -a -i -a --rm -a my-db-mcp
+        agent stack custom-add my-mcp npx -a my-server -e "API_KEY:API key for service"
+    """
+    agent = ctx.obj["agent"]
+
+    # Handle npm package shorthand
+    if package:
+        final_command = "npx"
+        final_args = ["-y", command] + list(args)
+    else:
+        final_command = command
+        final_args = list(args)
+
+    # Parse env vars
+    env_vars = {}
+    for e in env:
+        if ":" in e:
+            var_name, var_desc = e.split(":", 1)
+            env_vars[var_name] = {
+                "description": var_desc,
+                "example": "",
+                "required": True,
+            }
+        else:
+            env_vars[e] = {
+                "description": f"{e} value",
+                "example": "",
+                "required": True,
+            }
+
+    result = tech_stack.add_custom_stack(
+        name=name,
+        description=desc or f"Custom MCP: {name}",
+        command=final_command,
+        args=final_args,
+        env_vars=env_vars or None,
+        project_path=agent.project_path,
+    )
+
+    if result.get("success"):
+        console.print(f"[green]Added custom MCP: {name}[/green]")
+        console.print(f"  Command: {final_command} {' '.join(final_args)}")
+        if env_vars:
+            console.print(f"  Env vars: {', '.join(env_vars.keys())}")
+        console.print(f"\n[dim]Use it with: agent stack add {name}[/dim]")
+    else:
+        console.print(f"[red]Error: {result.get('error')}[/red]")
+
+
+@stack_group.command("custom-remove")
+@click.argument("name")
+@click.pass_context
+def stack_custom_remove(ctx, name):
+    """Remove a custom MCP server."""
+    agent = ctx.obj["agent"]
+
+    if tech_stack.remove_custom_stack(name, agent.project_path):
+        console.print(f"[green]Removed custom MCP: {name}[/green]")
+    else:
+        console.print(f"[yellow]Custom MCP not found: {name}[/yellow]")
 
 
 if __name__ == "__main__":
